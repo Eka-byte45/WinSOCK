@@ -76,33 +76,37 @@ void main()
 	//5)Отправка и получение данных:
 	CHAR sendbuffer[BUFFER_LENGTH] = "Hello Server";
 	CHAR recvbuffer[BUFFER_LENGTH] = {};
-	iResult = send(connect_socket, sendbuffer, strlen(sendbuffer), 0);
-	if (iResult == SOCKET_ERROR)
-	{
-		cout << FormatLastError(WSAGetLastError(), szError) << endl;
-		cout << "Send failed:\t" << WSAGetLastError() << endl;
-		closesocket(connect_socket);
-		freeaddrinfo(result);
-		WSACleanup();
-		return;
-	}
-	cout << "Bytes sent: " << iResult << endl;
+
 	do
 	{
-		iResult = recv(connect_socket, recvbuffer, BUFFER_LENGTH, 0);
-		if (iResult > 0) cout << recvbuffer << "(" << iResult << " Bytes)" << endl;
-		else if (result == 0)cout << "Connection closed" << endl;
-		else cout << FormatLastError(WSAGetLastError(), szError) << endl; //cout << "Recive failed:\t" << WSAGetLastError() << endl;
-	} while (iResult > 0);
+		iResult = send(connect_socket, sendbuffer, strlen(sendbuffer), 0);
+		if (iResult == SOCKET_ERROR)
+		{
+			cout << FormatLastError(WSAGetLastError(), szError) << endl;
+			cout << "Send failed:\t" << WSAGetLastError() << endl;
+			closesocket(connect_socket);
+			freeaddrinfo(result);
+			WSACleanup();
+			return;
+		}
+		cout << "Bytes sent: " << iResult << endl;
+		//do
+		//{
+			iResult = recv(connect_socket, recvbuffer, BUFFER_LENGTH, 0);
+			if (iResult > 0) cout << recvbuffer << "(" << iResult << " Bytes)" << endl;
+			else if (result == 0)cout << "Connection closed" << endl;
+			else cout << FormatLastError(WSAGetLastError(), szError) << endl; //cout << "Recive failed:\t" << WSAGetLastError() << endl;
+		//} while (iResult > 0);
+		cin.getline(sendbuffer, BUFFER_LENGTH);
+	} while (strcmp(sendbuffer,"exit")!=0);
 
 	iResult = shutdown(connect_socket, SD_BOTH);
 	if (iResult == SOCKET_ERROR)
 	{
 		cout << FormatLastError(WSAGetLastError(), szError) << endl;
 		cout << "Shutdown falied: " << WSAGetLastError() << endl;
-		closesocket(connect_socket);
-		freeaddrinfo(result);
-		WSACleanup();
-		return;
 	}
+	closesocket(connect_socket);
+	freeaddrinfo(result);
+	WSACleanup();
 }
