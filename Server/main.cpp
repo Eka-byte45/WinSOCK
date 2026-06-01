@@ -105,11 +105,11 @@ void main()
 	cout << inet_ntoa(client_address.sin_addr) <<":" << ntohs(client_address.sin_port) << endl;
 
 	//7)Получение и отправка данных:
-	CHAR recvbuffer[BUFFER_LENGTH] = {};
-	CHAR sendBuffer[BUFFER_LENGTH] = {};
 	INT iSendResult = 0;
 	do
 	{
+		CHAR sendBuffer[BUFFER_LENGTH] = {};
+		CHAR recvbuffer[BUFFER_LENGTH] = {};
 		iResult = recv(client_socket, recvbuffer, BUFFER_LENGTH, 0);
 		dwError = WSAGetLastError();
 		if (iResult > 0)
