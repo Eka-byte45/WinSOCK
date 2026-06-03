@@ -18,6 +18,12 @@ using namespace std;
 #define BUFFER_LENGTH 1500
 #define MAX_CONNECTIONS 5
 
+SOCKET sockets[MAX_CONNECTIONS] = {};
+DWORD dwThredIDs[MAX_CONNECTIONS] = {};
+HANDLE hThreads[MAX_CONNECTIONS] = {};
+
+VOID ClientHandle(SOCKET client_socket);
+
 void main()
 {
 	setlocale(LC_ALL, "");
@@ -103,9 +109,10 @@ void main()
 	//sockaddr_in* client_address_in = &client_address;
 	//CHAR* clientIP = inet_ntoa(client_address.sa_data+2);
 	cout << inet_ntoa(client_address.sin_addr) <<":" << ntohs(client_address.sin_port) << endl;
+	ClientHandle(client_socket);
 
 	//7)Получение и отправка данных:
-	INT iSendResult = 0;
+	/*INT iSendResult = 0;
 	do
 	{
 		CHAR sendBuffer[BUFFER_LENGTH] = {};
@@ -132,17 +139,56 @@ void main()
 			cout << "Recive failed with error: " << WSAGetLastError() << endl;
 			closesocket(client_socket);
 		}
+	} while (iResult > 0);*/
+
+	/*iResult = shutdown(client_socket, SD_BOTH);
+	dwError = WSAGetLastError();
+	if (iResult == SOCKET_ERROR)cout << "Client shutdown failed with " << FormatLastError(dwError, szError) << endl;*/
+
+	/*iResult = shutdown(client_socket, SD_BOTH);
+	dwError = WSAGetLastError();
+	if (iResult == SOCKET_ERROR)cout << "Server shutdown failed with " << FormatLastError(dwError, szError) << endl;*/
+
+	closesocket(client_socket);
+	closesocket(listen_socket);
+	WSACleanup();
+}
+
+VOID ClientHandle(SOCKET client_socket)
+{
+	INT iResult = 0;
+	DWORD dwError = 0;
+	CHAR szError[256] = {};
+	INT iSendResult = 0;
+	do
+	{
+		CHAR sendBuffer[BUFFER_LENGTH] = {};
+		CHAR recvbuffer[BUFFER_LENGTH] = {};
+		iResult = recv(client_socket, recvbuffer, BUFFER_LENGTH, 0);
+		dwError = WSAGetLastError();
+		if (iResult > 0)
+		{
+			cout << recvbuffer << "(" << strlen(recvbuffer) << " Bytes)" << endl;
+			iSendResult = send(client_socket, recvbuffer, strlen(recvbuffer), 0);
+			dwError = WSAGetLastError();
+			if (iSendResult == SOCKET_ERROR)
+			{
+				cout << FormatLastError(dwError, szError) << endl;
+				cout << "Send failed with error: " << WSAGetLastError() << endl;
+				closesocket(client_socket);
+			}
+			else cout << "Bytes sent: " << iSendResult << endl;
+		}
+		else if (iResult == 0)cout << "Connection closing..." << endl;
+		else
+		{
+			cout << FormatLastError(dwError, szError) << endl;
+			cout << "Recive failed with error: " << WSAGetLastError() << endl;
+			closesocket(client_socket);
+		}
 	} while (iResult > 0);
 
 	iResult = shutdown(client_socket, SD_BOTH);
 	dwError = WSAGetLastError();
 	if (iResult == SOCKET_ERROR)cout << "Client shutdown failed with " << FormatLastError(dwError, szError) << endl;
-
-	iResult = shutdown(client_socket, SD_BOTH);
-	dwError = WSAGetLastError();
-	if (iResult == SOCKET_ERROR)cout << "Server shutdown failed with " << FormatLastError(dwError, szError) << endl;
-
-	closesocket(client_socket);
-	closesocket(listen_socket);
-	WSACleanup();
 }
