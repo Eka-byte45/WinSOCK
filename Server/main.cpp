@@ -22,6 +22,7 @@ using namespace std;
 SOCKET sockets[MAX_CONNECTIONS] = {};//массив для хранения дескрипторов сокетов клиента
 DWORD dwThredIDs[MAX_CONNECTIONS] = {};//массив для хранения системных ай ди для каждого клиента
 HANDLE hThreads[MAX_CONNECTIONS] = {};//массив дескрипторов потоков для управления их жизненным циклом
+INT g_ActiveClients = 0;//Счетчик клиентов
 
 //struct ClentParametrs
 //{
@@ -30,6 +31,8 @@ HANDLE hThreads[MAX_CONNECTIONS] = {};//массив дескрипторов потоков для управлен
 //};
 
 VOID ClientHandle(SOCKET client_socket);
+VOID ShowActiveClients();
+//VOID Realease(SOCKET client_socket);
 
 void main()
 {
@@ -68,7 +71,7 @@ void main()
 	//getaddrinfo - берет шаблон и порт, формирует готовую структуру данных result? эту структуру можно предать
 	//в фунции socket(), bind()
 	//Если функция выполнилась успешно, то она возвращает 0
-	//getaddrinfo работает как аалокатор
+	//getaddrinfo работает как аллокатор
 	dwError = WSAGetLastError();
 	if (iResult != 0)
 	{
@@ -117,10 +120,10 @@ void main()
 		return;
 	}
 	//6)Обработка соединений от клиентов:
-	INT i = 0;//Счетчик клиентов
 	do
 	{
-		sockaddr_in client_address;//структура, храннящая адрес подключившегося клиента
+		ShowActiveClients();
+		sockaddr_in client_address;//структура, хранящая адрес подключившегося клиента
 		int client_addrlen = sizeof(client_address);//сохраняем размер структуры
 		client_address.sin_family = AF_INET;//адрес типа IPv4
 		//accept - это блокирующая функция, это означает что выполнение программы остановится и будет ждать, пока не
@@ -135,19 +138,19 @@ void main()
 		}
 		cout << inet_ntoa(client_address.sin_addr) << ":" << ntohs(client_address.sin_port) << endl;
 		//ClientHandle(client_socket);
-		if (i < MAX_CONNECTIONS)//количество подключений меньше лимита
+		if (g_ActiveClients < MAX_CONNECTIONS)//количество подключений меньше лимита
 		{
-			sockets[i] = client_socket;//сохраняем дескриптор нового сокета в массив для дальнейшего управления
-			hThreads[i] = CreateThread//создаем поток
+			sockets[g_ActiveClients] = client_socket;//сохраняем дескриптор нового сокета в массив для дальнейшего управления
+			hThreads[g_ActiveClients] = CreateThread//создаем поток
 			(
 				NULL,//Security attributes
 				0,//Stack size
 				(LPTHREAD_START_ROUTINE)ClientHandle,//Указатель на функцию, которая будет выполняться в потоке
-				(LPVOID)sockets[i],
+				(LPVOID)sockets[g_ActiveClients],
 				0,
-				&dwThredIDs[i]
+				&dwThredIDs[g_ActiveClients]
 			);
-			i++;//увеличиваем счетчик клиентов
+			g_ActiveClients++;//увеличиваем счетчик клиентов
 		}
 		else
 		{
@@ -168,7 +171,7 @@ void main()
 		//sockaddr_in* client_address_in = &client_address;
 		//CHAR* clientIP = inet_ntoa(client_address.sa_data+2);
 	} while (true);
-	
+	WaitForMultipleObjects(MAX_CONNECTIONS, hThreads, TRUE, INFINITE);
 
 	//7)Получение и отправка данных:
 	/*INT iSendResult = 0;
@@ -211,6 +214,28 @@ void main()
 	
 	closesocket(listen_socket);
 	WSACleanup();
+}
+
+INT GetSlotIndex(DWORD dwID)
+{
+	for (int i = 0; i < MAX_CONNECTIONS; ++i)
+	{
+		if (dwThredIDs[i] == dwID)return i;
+	}
+}
+
+VOID Shift(INT start)
+{
+	for (INT i = 0; i < MAX_CONNECTIONS; ++i)
+	{
+		sockets[i] = sockets[i + 1];
+		dwThredIDs[i] = dwThredIDs[i + 1];
+		hThreads[i] = hThreads[i + 1];
+	}
+	sockets[MAX_CONNECTIONS-1] = NULL;
+	dwThredIDs[MAX_CONNECTIONS - 1] = NULL;
+	hThreads[MAX_CONNECTIONS - 1] = NULL;
+	g_ActiveClients--;
 }
 
 VOID ClientHandle(SOCKET client_socket)
@@ -266,10 +291,48 @@ VOID ClientHandle(SOCKET client_socket)
 			closesocket(client_socket);
 		}
 	} while (iResult > 0);
+	DWORD dwID = GetCurrentThreadId();
+	Shift(GetSlotIndex(dwID));
+	cout << sz_client_address << "left" << endl;
 	//по завершенеию цикла (отключение клиента или же ошибка) нужно закрыть соединение
 	iResult = shutdown(client_socket, SD_BOTH);//shutdown - функция, закрывающая соединение, флаг
 	//SD_BOTH означает запретить отправку и получение
 	dwError = WSAGetLastError();
 	if (iResult == SOCKET_ERROR)cout << "Client shutdown failed with " << FormatLastError(dwError, szError) << endl;
 	closesocket(client_socket);
+	//Realease(client_socket);
+	ShowActiveClients();
+	ExitThread(0);
 }
+//VOID Realease(SOCKET client_socket)
+//{
+//	for (int i = 0; i < MAX_CONNECTIONS; ++i)
+//	{
+//		if (client_socket == sockets[i])
+//		{
+//			sockets[i] = NULL;
+//			//dwThredIDs[i] = NULL;
+//			//hThreads[i] = NULL;
+//			for (int j = i; sockets[j] || j < MAX_CONNECTIONS - 1; ++j)
+//			{
+//				sockets[j] = sockets[j + 1];
+//				dwThredIDs[j] = dwThredIDs[j + 1];
+//				hThreads[j] = hThreads[j + 1];
+//			}
+//		}
+//	}
+//	g_ActiveClients--;
+//	ShowActiveClients();
+//}
+//
+VOID ShowActiveClients()
+{
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_SCREEN_BUFFER_INFO info;
+	GetConsoleScreenBufferInfo(hConsole, &info);
+	COORD cursor = { 25,1 };
+	SetConsoleCursorPosition(hConsole, cursor);
+	cout << "Количество подключений: " << g_ActiveClients;
+	SetConsoleCursorPosition(hConsole, info.dwCursorPosition);
+}
+
