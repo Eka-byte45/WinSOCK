@@ -19,9 +19,9 @@ using namespace std;
 #define BUFFER_LENGTH 1500
 #define MAX_CONNECTIONS 3
 
-SOCKET sockets[MAX_CONNECTIONS] = {};
-DWORD dwThredIDs[MAX_CONNECTIONS] = {};
-HANDLE hThreads[MAX_CONNECTIONS] = {};
+SOCKET sockets[MAX_CONNECTIONS] = {};//массив для хранения дескрипторов сокетов клиента
+DWORD dwThredIDs[MAX_CONNECTIONS] = {};//массив для хранения системных ай ди для каждого клиента
+HANDLE hThreads[MAX_CONNECTIONS] = {};//массив дескрипторов потоков для управления их жизненным циклом
 
 //struct ClentParametrs
 //{
@@ -35,11 +35,15 @@ void main()
 {
 	setlocale(LC_ALL, "");
 	cout << "SERVER" << endl;
-	DWORD dwError = 0;
-	CHAR szError[256] = {};
+	DWORD dwError = 0;//для хранения кода ошибки
+	CHAR szError[256] = {};//буфер для текстового описания ошибки
 	//1)Init WinSOCK
-	WSADATA wsaData;
+	WSADATA wsaData;//специальная структура, которую требует WSAStartup
 	int iResult;
+	//WSAStartup это функция-загрузчик, она загружает в апямять процессора библиотеку WS2_32.dll
+	//MAKEWORD(2,2) - старший и младший номер версии, вместе означает версия 2.2
+	//&wsaData - указатель на структуру, система ее заполнит реальными данными о реальной версии Winsock
+	//функция WSAStartup возвращает 0, если все прошло успешно
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	dwError = WSAGetLastError();
 	if (iResult != 0)
@@ -49,23 +53,33 @@ void main()
 		return;
 	}
 	//2)параметры подключения:
-	addrinfo hints;
+	addrinfo hints;//структура, опреедляющая какой именно сокет мы хотим создать
 	addrinfo* result;
-	ZeroMemory(&hints, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-	hints.ai_flags = AI_PASSIVE;
-	iResult = getaddrinfo(NULL, PORT, &hints, &result);
+	ZeroMemory(&hints, sizeof(hints));//обнуляем структуру перед заполнением
+	hints.ai_family = AF_INET;//используем IPv4
+	hints.ai_socktype = SOCK_STREAM;//потоковый сокет, данные будут передаваться непрерывно
+	hints.ai_protocol = IPPROTO_TCP;//протокол TCP
+	hints.ai_flags = AI_PASSIVE;//это  флаг говорит функции getaddrinfo заполни IP-адрес так, чтобы сокет мог слушать
+	//входящие соеднения на всех сетевых интерфейсах этого компьютера
+	iResult = getaddrinfo(NULL, PORT, &hints, &result);//функция переводит порт в формат понятный для ОС
+	//первый флаг NULL+AI_PASSIVE означает слушать на всех доступных адресах, PORT - передаем порт как строку
+	//&hints - указатель на шаблон с требованиями к сокету, &result -  указатель на указатель это входной
+	//параметр, функция выделит память и создаст связный список из структур addtinfo,которые подходят под наши требования
+	//getaddrinfo - берет шаблон и порт, формирует готовую структуру данных result? эту структуру можно предать
+	//в фунции socket(), bind()
+	//Если функция выполнилась успешно, то она возвращает 0
+	//getaddrinfo работает как аалокатор
 	dwError = WSAGetLastError();
 	if (iResult != 0)
 	{
 		cout << FormatLastError(dwError, szError) << endl;
 		cout << "getaddrinfo() failed: " << iResult << endl;
-		WSACleanup();
+		WSACleanup();//корректоно выгружаем библиотеку Winsock и освобождаем ресурсы
 		return;
 	}
 	//Создаем сокет для сервера, который он будет постоянно слушать "LISTENING"
+	//функция socket() обращается к операционной системе с просьбой создать новый сокет и дать его дескриптор
+	//в функцию мы передаем парметры, которые получили от getaddrinfo 
 	SOCKET listen_socket =
 		socket(result->ai_family, result->ai_socktype, result->ai_protocol);
 	dwError = WSAGetLastError();
@@ -73,19 +87,20 @@ void main()
 	{
 		cout << FormatLastError(dwError, szError) << endl;
 		cout << "Listen socket error: " << WSAGetLastError() << endl;
-		freeaddrinfo(result);
-		WSACleanup();
+		freeaddrinfo(result);//освобождаем память, которую выделила функция getaddrinfo для структуры result
+		WSACleanup();//выключаем сетевую подсистему
 		return;
 	}
 	//4) Bind socket;
-	iResult = bind(listen_socket, result->ai_addr, result->ai_addrlen);
+	iResult = bind(listen_socket, result->ai_addr, result->ai_addrlen);//команда ОС, которая связывает созданный сокет с
+	//конкретным сетевым адресом (IP + порт)
 	dwError = WSAGetLastError();
 	if (iResult == SOCKET_ERROR)
 	{
 		cout << FormatLastError(dwError, szError) << endl;
 		cout << "Bind falied with error: " << WSAGetLastError() << endl;
 		closesocket(listen_socket);
-		freeaddrinfo(result);
+		freeaddrinfo(result);//освобождение блока памяти, функция принимает указатель на начало блока памяти (result)
 		WSACleanup();
 		return;
 	}
@@ -105,9 +120,12 @@ void main()
 	INT i = 0;//Счетчик клиентов
 	do
 	{
-		sockaddr_in client_address;
-		int client_addrlen = sizeof(client_address);
-		client_address.sin_family = AF_INET;
+		sockaddr_in client_address;//структура, храннящая адрес подключившегося клиента
+		int client_addrlen = sizeof(client_address);//сохраняем размер структуры
+		client_address.sin_family = AF_INET;//адрес типа IPv4
+		//accept - это блокирующая функция, это означает что выполнение программы остановится и будет ждать, пока не
+		//придет новый клиент
+		//функция берет слушающий сокет и создает новый сокет client_soket
 		SOCKET client_socket = accept(listen_socket, (SOCKADDR*)&client_address, &client_addrlen);
 		dwError = WSAGetLastError();
 		if (client_socket == INVALID_SOCKET)
@@ -117,10 +135,10 @@ void main()
 		}
 		cout << inet_ntoa(client_address.sin_addr) << ":" << ntohs(client_address.sin_port) << endl;
 		//ClientHandle(client_socket);
-		if (i < MAX_CONNECTIONS)
+		if (i < MAX_CONNECTIONS)//количество подключений меньше лимита
 		{
-			sockets[i] = client_socket;
-			hThreads[i] = CreateThread
+			sockets[i] = client_socket;//сохраняем дескриптор нового сокета в массив для дальнейшего управления
+			hThreads[i] = CreateThread//создаем поток
 			(
 				NULL,//Security attributes
 				0,//Stack size
@@ -129,12 +147,12 @@ void main()
 				0,
 				&dwThredIDs[i]
 			);
-			i++;
+			i++;//увеличиваем счетчик клиентов
 		}
 		else
 		{
 			CHAR recv_buffer[BUFFER_LENGTH] = {};
-			iResult = recv(client_socket, recv_buffer, BUFFER_LENGTH, NULL);
+			iResult = recv(client_socket, recv_buffer, BUFFER_LENGTH, NULL);//читаем данные, то что успел отправить клиент
 			/*if (iResult != 0)
 			{
 				FormatLastError(WSAGetLastError(), szError);
@@ -142,8 +160,8 @@ void main()
 			}
 			else*/ cout << recv_buffer << endl;
 			//CHAR szDeclainMessage[];
-			iResult = send(client_socket, DECLINE_MESSAGE, strlen(DECLINE_MESSAGE),NULL);
-			shutdown(client_socket, SD_BOTH);
+			iResult = send(client_socket, DECLINE_MESSAGE, strlen(DECLINE_MESSAGE),NULL);//отрпавляем сообщение об отказе
+			shutdown(client_socket, SD_BOTH);//закрываем соединение
 			closesocket(client_socket);
 		}
 		//6.1) Получаем информацию о сокете клиента:
@@ -197,30 +215,42 @@ void main()
 
 VOID ClientHandle(SOCKET client_socket)
 {
-	sockaddr_in client_address;
-	client_address.sin_family = AF_INET;
-	INT namelen = sizeof(client_address);
-	getpeername(client_socket, (sockaddr*)&client_address, &namelen);
-	CHAR sz_client_address[32] = {};
+	sockaddr_in client_address;//sockaddr_in - структура для хранения информации об адресе клиента по протоколу IPv4
+	client_address.sin_family = AF_INET;//sin_family указывает,что это за адрес,для IPv4 это AF_INET
+	INT namelen = sizeof(client_address);//измерили размер client_address структуры
+	getpeername(client_socket, (sockaddr*)&client_address, &namelen);//функция позволяет узнать серверу кто к нему подключился, она извлекает инфу о клиенте и помещает в структуру client_address
+	CHAR sz_client_address[32] = {};//создаем буффер
+	//inet_ntoa - эта функция принимает IP адрес из структруры и преобразует его в строку
+	//client_address.sin_port - содержит номер порта,но в сетевом порядке байт
+	//ntohs(Network-To-Host Short) -  конвертирует число из сетевого порядка в порядок, понятный процессору(host byte order)
 	sprintf(sz_client_address, "%s:%d - ", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
 
 	cout << "Client connected:\t "<<sz_client_address<<"\tSOCKET:\t"<<client_socket << endl;
-	INT iResult = 0;
-	DWORD dwError = 0;
-	CHAR szError[256] = {};
-	INT iSendResult = 0;
-	do
+	INT iResult = 0;//сколько байт получено по результатам функции recv
+	DWORD dwError = 0;//для хранения кода ошибки
+	CHAR szError[256] = {};//буфер для текстового описания ошибки
+	INT iSendResult = 0;//сколько байт отправлено по результатам функции send
+	//цикл будет выполняться до тех пор пока результат получения данных больше нуля
+	do                                
 	{
-		CHAR sendBuffer[BUFFER_LENGTH] = {};
-		CHAR recvbuffer[BUFFER_LENGTH] = {};
+		CHAR sendBuffer[BUFFER_LENGTH] = {};//буфер для отправки данных
+		CHAR recvbuffer[BUFFER_LENGTH] = {};//буфер для входящих данных
+		//recv - это функция пытается прочитать данные из сокета, она кладет полученные данные в recvbuffer
+		//эта функция может прочитать максимум BUFFER_LENGTH байт
+		//возвращает >0, то количество успешно прочитанных байт
+		//0 - соединение корректон закрыто клиентом
+		//SOCKET_ERROR(-1) произошла ошибка
 		iResult = recv(client_socket, recvbuffer, BUFFER_LENGTH, 0);
-		dwError = WSAGetLastError();
-		if (iResult > 0)
+		dwError = WSAGetLastError();//функция запрашивает у ОС код последней ошибки,которая произошла в контексте сетевых операций для данного потока
+		if (iResult > 0)//данные успешно получены
 		{
+			//выводим на консоль адрес клиента и полученные от него данные
+			//strlen(recvbuffer) отправляем только полезные данные
 			cout << sz_client_address << recvbuffer << "(" << strlen(recvbuffer) << " Bytes)" << endl;
+			//эхо-логика сервер отправляет те же самые данные, которые получил
 			iSendResult = send(client_socket, recvbuffer, strlen(recvbuffer), 0);
 			dwError = WSAGetLastError();
-			if (iSendResult == SOCKET_ERROR)
+			if (iSendResult == SOCKET_ERROR)//проверяем успешно ли прошла отправка,если нет, то  выводим ошибку и закрываем сокет
 			{
 				cout << FormatLastError(dwError, szError) << endl;
 				cout << "Send failed with error: " << WSAGetLastError() << endl;
@@ -228,16 +258,17 @@ VOID ClientHandle(SOCKET client_socket)
 			}
 			else cout << "Bytes sent: " << iSendResult << endl;
 		}
-		else if (iResult == 0)cout << "Connection closing..." << endl;
-		else
+		else if (iResult == 0)cout << "Connection closing..." << endl;//клиент отключился 
+		else//произошла ошибка при получении данных, выводим описание ошибки и закрываем сокет
 		{
 			cout << FormatLastError(dwError, szError) << endl;
 			cout << "Recive failed with error: " << WSAGetLastError() << endl;
 			closesocket(client_socket);
 		}
 	} while (iResult > 0);
-
-	iResult = shutdown(client_socket, SD_BOTH);
+	//по завершенеию цикла (отключение клиента или же ошибка) нужно закрыть соединение
+	iResult = shutdown(client_socket, SD_BOTH);//shutdown - функция, закрывающая соединение, флаг
+	//SD_BOTH означает запретить отправку и получение
 	dwError = WSAGetLastError();
 	if (iResult == SOCKET_ERROR)cout << "Client shutdown failed with " << FormatLastError(dwError, szError) << endl;
 	closesocket(client_socket);
