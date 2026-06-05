@@ -22,7 +22,7 @@ using namespace std;
 SOCKET sockets[MAX_CONNECTIONS] = {};//массив для хранения дескрипторов сокетов клиента
 DWORD dwThredIDs[MAX_CONNECTIONS] = {};//массив для хранения системных ай ди для каждого клиента
 HANDLE hThreads[MAX_CONNECTIONS] = {};//массив дескрипторов потоков для управления их жизненным циклом
-
+INT i = 0;
 //struct ClentParametrs
 //{
 //	SOCKET client_socket;
@@ -117,7 +117,7 @@ void main()
 		return;
 	}
 	//6)Обработка соединений от клиентов:
-	INT i = 0;//Счетчик клиентов
+	//INT i = 0;//Счетчик клиентов
 	do
 	{
 		sockaddr_in client_address;//структура, храннящая адрес подключившегося клиента
@@ -266,6 +266,31 @@ VOID ClientHandle(SOCKET client_socket)
 			closesocket(client_socket);
 		}
 	} while (iResult > 0);
+	DWORD currentThreadID = GetCurrentThreadId();
+	INT slotIndex = -1;
+	for (INT j = 0; j < MAX_CONNECTIONS; ++j)
+	{
+		if (hThreads[j] != NULL && dwThredIDs[j] == currentThreadID)
+		{
+			slotIndex = j;
+			break;
+		}
+	}
+	if (slotIndex != -1)
+	{
+		CloseHandle(hThreads[slotIndex]);
+		for (INT j = slotIndex; j < MAX_CONNECTIONS - 1; ++j)
+		{
+			sockets[j] = sockets[j + 1];
+			hThreads[j] = hThreads[j + 1];
+			dwThredIDs[j] = dwThredIDs[j + 1];
+		}
+		sockets[MAX_CONNECTIONS - 1] = NULL;
+		hThreads[MAX_CONNECTIONS - 1] = NULL;
+		dwThredIDs[MAX_CONNECTIONS - 1] = 0;
+		i--;
+	}
+	cout << "Client disconnected. Active clients: " << i << std::endl;
 	//по завершенеию цикла (отключение клиента или же ошибка) нужно закрыть соединение
 	iResult = shutdown(client_socket, SD_BOTH);//shutdown - функция, закрывающая соединение, флаг
 	//SD_BOTH означает запретить отправку и получение
