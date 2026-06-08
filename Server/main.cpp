@@ -24,6 +24,7 @@ DWORD dwThredIDs[MAX_CONNECTIONS] = {};//массив для хранения системных ай ди для
 HANDLE hThreads[MAX_CONNECTIONS] = {};//массив дескрипторов потоков для управления их жизненным циклом
 INT g_ActiveClients = 0;//Счетчик клиентов
 
+CRITICAL_SECTION cs_sockets;// критическая секция
 //struct ClentParametrs
 //{
 //	SOCKET client_socket;
@@ -55,6 +56,7 @@ void main()
 		cout << "WSAStartup failed: " << iResult << endl;
 		return;
 	}
+	InitializeCriticalSection(&cs_sockets);
 	//2)параметры подключения:
 	addrinfo hints;//структура, опреедляющая какой именно сокет мы хотим создать
 	addrinfo* result;
@@ -213,6 +215,7 @@ void main()
 
 	
 	closesocket(listen_socket);
+	DeleteCriticalSection(&cs_sockets);
 	WSACleanup();
 }
 
@@ -265,6 +268,7 @@ VOID ClientHandle(SOCKET client_socket)
 		//возвращает >0, то количество успешно прочитанных байт
 		//0 - соединение корректон закрыто клиентом
 		//SOCKET_ERROR(-1) произошла ошибка
+		ZeroMemory(recvbuffer, BUFFER_LENGTH);
 		iResult = recv(client_socket, recvbuffer, BUFFER_LENGTH, 0);
 		dwError = WSAGetLastError();//функция запрашивает у ОС код последней ошибки,которая произошла в контексте сетевых операций для данного потока
 		if (iResult > 0)//данные успешно получены
@@ -272,16 +276,29 @@ VOID ClientHandle(SOCKET client_socket)
 			//выводим на консоль адрес клиента и полученные от него данные
 			//strlen(recvbuffer) отправляем только полезные данные
 			cout << sz_client_address << recvbuffer << "(" << strlen(recvbuffer) << " Bytes)" << endl;
-			//эхо-логика сервер отправляет те же самые данные, которые получил
-			iSendResult = send(client_socket, recvbuffer, strlen(recvbuffer), 0);
-			dwError = WSAGetLastError();
-			if (iSendResult == SOCKET_ERROR)//проверяем успешно ли прошла отправка,если нет, то  выводим ошибку и закрываем сокет
+			EnterCriticalSection(&cs_sockets);
+			for (INT i = 0; i < g_ActiveClients; ++i)
 			{
-				cout << FormatLastError(dwError, szError) << endl;
-				cout << "Send failed with error: " << WSAGetLastError() << endl;
-				closesocket(client_socket);
+				if (sockets[i] != client_socket && sockets[i] != INVALID_SOCKET)
+				{
+					INT iSendResult = send(sockets[i], recvbuffer, iResult, 0);
+					if (iSendResult == SOCKET_ERROR)
+					{
+						cout << "Send to other client failed with error: " << WSAGetLastError() << endl;
+					}
+				}
 			}
-			else cout << "Bytes sent: " << iSendResult << endl;
+			LeaveCriticalSection(&cs_sockets);
+			////эхо-логика сервер отправляет те же самые данные, которые получил
+			//iSendResult = send(client_socket, recvbuffer, strlen(recvbuffer), 0);
+			//dwError = WSAGetLastError();
+			//if (iSendResult == SOCKET_ERROR)//проверяем успешно ли прошла отправка,если нет, то  выводим ошибку и закрываем сокет
+			//{
+			//	cout << FormatLastError(dwError, szError) << endl;
+			//	cout << "Send failed with error: " << WSAGetLastError() << endl;
+			//	closesocket(client_socket);
+			//}
+			//else cout << "Bytes sent: " << iSendResult << endl;
 		}
 		else if (iResult == 0)cout << "Connection closing..." << endl;//клиент отключился 
 		else//произошла ошибка при получении данных, выводим описание ошибки и закрываем сокет
