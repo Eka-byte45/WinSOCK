@@ -1,4 +1,4 @@
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
+п»ї#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #ifndef WIN32_LEAN_MEAN
 #define  WIN32_LEAN_MEAN
 #endif // !WIN32_LEAN_MEAN
@@ -19,10 +19,10 @@ using namespace std;
 #define BUFFER_LENGTH 1500
 #define MAX_CONNECTIONS 3
 
-SOCKET sockets[MAX_CONNECTIONS] = {};//массив для хранения дескрипторов сокетов клиента
-DWORD dwThredIDs[MAX_CONNECTIONS] = {};//массив для хранения системных ай ди для каждого клиента
-HANDLE hThreads[MAX_CONNECTIONS] = {};//массив дескрипторов потоков для управления их жизненным циклом
-INT g_ActiveClients = 0;//Счетчик клиентов
+SOCKET sockets[MAX_CONNECTIONS] = {};//РјР°СЃСЃРёРІ РґР»СЏ С…СЂР°РЅРµРЅРёСЏ РґРµСЃРєСЂРёРїС‚РѕСЂРѕРІ СЃРѕРєРµС‚РѕРІ РєР»РёРµРЅС‚Р°
+DWORD dwThredIDs[MAX_CONNECTIONS] = {};//РјР°СЃСЃРёРІ РґР»СЏ С…СЂР°РЅРµРЅРёСЏ СЃРёСЃС‚РµРјРЅС‹С… Р°Р№ РґРё РґР»СЏ РєР°Р¶РґРѕРіРѕ РєР»РёРµРЅС‚Р°
+HANDLE hThreads[MAX_CONNECTIONS] = {};//РјР°СЃСЃРёРІ РґРµСЃРєСЂРёРїС‚РѕСЂРѕРІ РїРѕС‚РѕРєРѕРІ РґР»СЏ СѓРїСЂР°РІР»РµРЅРёСЏ РёС… Р¶РёР·РЅРµРЅРЅС‹Рј С†РёРєР»РѕРј
+INT g_ActiveClients = 0;//РЎС‡РµС‚С‡РёРє РєР»РёРµРЅС‚РѕРІ
 
 //struct ClentParametrs
 //{
@@ -32,21 +32,22 @@ INT g_ActiveClients = 0;//Счетчик клиентов
 
 VOID ClientHandle(SOCKET client_socket);
 VOID ShowActiveClients();
+VOID Broadcast(CHAR sz_message[], DWORD dwID);
 //VOID Realease(SOCKET client_socket);
 
 void main()
 {
 	setlocale(LC_ALL, "");
 	cout << "SERVER" << endl;
-	DWORD dwError = 0;//для хранения кода ошибки
-	CHAR szError[256] = {};//буфер для текстового описания ошибки
+	DWORD dwError = 0;//РґР»СЏ С…СЂР°РЅРµРЅРёСЏ РєРѕРґР° РѕС€РёР±РєРё
+	CHAR szError[256] = {};//Р±СѓС„РµСЂ РґР»СЏ С‚РµРєСЃС‚РѕРІРѕРіРѕ РѕРїРёСЃР°РЅРёСЏ РѕС€РёР±РєРё
 	//1)Init WinSOCK
-	WSADATA wsaData;//специальная структура, которую требует WSAStartup
+	WSADATA wsaData;//СЃРїРµС†РёР°Р»СЊРЅР°СЏ СЃС‚СЂСѓРєС‚СѓСЂР°, РєРѕС‚РѕСЂСѓСЋ С‚СЂРµР±СѓРµС‚ WSAStartup
 	int iResult;
-	//WSAStartup это функция-загрузчик, она загружает в апямять процессора библиотеку WS2_32.dll
-	//MAKEWORD(2,2) - старший и младший номер версии, вместе означает версия 2.2
-	//&wsaData - указатель на структуру, система ее заполнит реальными данными о реальной версии Winsock
-	//функция WSAStartup возвращает 0, если все прошло успешно
+	//WSAStartup СЌС‚Рѕ С„СѓРЅРєС†РёСЏ-Р·Р°РіСЂСѓР·С‡РёРє, РѕРЅР° Р·Р°РіСЂСѓР¶Р°РµС‚ РІ Р°РїСЏРјСЏС‚СЊ РїСЂРѕС†РµСЃСЃРѕСЂР° Р±РёР±Р»РёРѕС‚РµРєСѓ WS2_32.dll
+	//MAKEWORD(2,2) - СЃС‚Р°СЂС€РёР№ Рё РјР»Р°РґС€РёР№ РЅРѕРјРµСЂ РІРµСЂСЃРёРё, РІРјРµСЃС‚Рµ РѕР·РЅР°С‡Р°РµС‚ РІРµСЂСЃРёСЏ 2.2
+	//&wsaData - СѓРєР°Р·Р°С‚РµР»СЊ РЅР° СЃС‚СЂСѓРєС‚СѓСЂСѓ, СЃРёСЃС‚РµРјР° РµРµ Р·Р°РїРѕР»РЅРёС‚ СЂРµР°Р»СЊРЅС‹РјРё РґР°РЅРЅС‹РјРё Рѕ СЂРµР°Р»СЊРЅРѕР№ РІРµСЂСЃРёРё Winsock
+	//С„СѓРЅРєС†РёСЏ WSAStartup РІРѕР·РІСЂР°С‰Р°РµС‚ 0, РµСЃР»Рё РІСЃРµ РїСЂРѕС€Р»Рѕ СѓСЃРїРµС€РЅРѕ
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	dwError = WSAGetLastError();
 	if (iResult != 0)
@@ -55,34 +56,34 @@ void main()
 		cout << "WSAStartup failed: " << iResult << endl;
 		return;
 	}
-	//2)параметры подключения:
-	addrinfo hints;//структура, опреедляющая какой именно сокет мы хотим создать
+	//2)РїР°СЂР°РјРµС‚СЂС‹ РїРѕРґРєР»СЋС‡РµРЅРёСЏ:
+	addrinfo hints;//СЃС‚СЂСѓРєС‚СѓСЂР°, РѕРїСЂРµРµРґР»СЏСЋС‰Р°СЏ РєР°РєРѕР№ РёРјРµРЅРЅРѕ СЃРѕРєРµС‚ РјС‹ С…РѕС‚РёРј СЃРѕР·РґР°С‚СЊ
 	addrinfo* result;
-	ZeroMemory(&hints, sizeof(hints));//обнуляем структуру перед заполнением
-	hints.ai_family = AF_INET;//используем IPv4
-	hints.ai_socktype = SOCK_STREAM;//потоковый сокет, данные будут передаваться непрерывно
-	hints.ai_protocol = IPPROTO_TCP;//протокол TCP
-	hints.ai_flags = AI_PASSIVE;//это  флаг говорит функции getaddrinfo заполни IP-адрес так, чтобы сокет мог слушать
-	//входящие соеднения на всех сетевых интерфейсах этого компьютера
-	iResult = getaddrinfo(NULL, PORT, &hints, &result);//функция переводит порт в формат понятный для ОС
-	//первый флаг NULL+AI_PASSIVE означает слушать на всех доступных адресах, PORT - передаем порт как строку
-	//&hints - указатель на шаблон с требованиями к сокету, &result -  указатель на указатель это входной
-	//параметр, функция выделит память и создаст связный список из структур addtinfo,которые подходят под наши требования
-	//getaddrinfo - берет шаблон и порт, формирует готовую структуру данных result? эту структуру можно предать
-	//в фунции socket(), bind()
-	//Если функция выполнилась успешно, то она возвращает 0
-	//getaddrinfo работает как аллокатор
+	ZeroMemory(&hints, sizeof(hints));//РѕР±РЅСѓР»СЏРµРј СЃС‚СЂСѓРєС‚СѓСЂСѓ РїРµСЂРµРґ Р·Р°РїРѕР»РЅРµРЅРёРµРј
+	hints.ai_family = AF_INET;//РёСЃРїРѕР»СЊР·СѓРµРј IPv4
+	hints.ai_socktype = SOCK_STREAM;//РїРѕС‚РѕРєРѕРІС‹Р№ СЃРѕРєРµС‚, РґР°РЅРЅС‹Рµ Р±СѓРґСѓС‚ РїРµСЂРµРґР°РІР°С‚СЊСЃСЏ РЅРµРїСЂРµСЂС‹РІРЅРѕ
+	hints.ai_protocol = IPPROTO_TCP;//РїСЂРѕС‚РѕРєРѕР» TCP
+	hints.ai_flags = AI_PASSIVE;//СЌС‚Рѕ  С„Р»Р°Рі РіРѕРІРѕСЂРёС‚ С„СѓРЅРєС†РёРё getaddrinfo Р·Р°РїРѕР»РЅРё IP-Р°РґСЂРµСЃ С‚Р°Рє, С‡С‚РѕР±С‹ СЃРѕРєРµС‚ РјРѕРі СЃР»СѓС€Р°С‚СЊ
+	//РІС…РѕРґСЏС‰РёРµ СЃРѕРµРґРЅРµРЅРёСЏ РЅР° РІСЃРµС… СЃРµС‚РµРІС‹С… РёРЅС‚РµСЂС„РµР№СЃР°С… СЌС‚РѕРіРѕ РєРѕРјРїСЊСЋС‚РµСЂР°
+	iResult = getaddrinfo(NULL, PORT, &hints, &result);//С„СѓРЅРєС†РёСЏ РїРµСЂРµРІРѕРґРёС‚ РїРѕСЂС‚ РІ С„РѕСЂРјР°С‚ РїРѕРЅСЏС‚РЅС‹Р№ РґР»СЏ РћРЎ
+	//РїРµСЂРІС‹Р№ С„Р»Р°Рі NULL+AI_PASSIVE РѕР·РЅР°С‡Р°РµС‚ СЃР»СѓС€Р°С‚СЊ РЅР° РІСЃРµС… РґРѕСЃС‚СѓРїРЅС‹С… Р°РґСЂРµСЃР°С…, PORT - РїРµСЂРµРґР°РµРј РїРѕСЂС‚ РєР°Рє СЃС‚СЂРѕРєСѓ
+	//&hints - СѓРєР°Р·Р°С‚РµР»СЊ РЅР° С€Р°Р±Р»РѕРЅ СЃ С‚СЂРµР±РѕРІР°РЅРёСЏРјРё Рє СЃРѕРєРµС‚Сѓ, &result -  СѓРєР°Р·Р°С‚РµР»СЊ РЅР° СѓРєР°Р·Р°С‚РµР»СЊ СЌС‚Рѕ РІС…РѕРґРЅРѕР№
+	//РїР°СЂР°РјРµС‚СЂ, С„СѓРЅРєС†РёСЏ РІС‹РґРµР»РёС‚ РїР°РјСЏС‚СЊ Рё СЃРѕР·РґР°СЃС‚ СЃРІСЏР·РЅС‹Р№ СЃРїРёСЃРѕРє РёР· СЃС‚СЂСѓРєС‚СѓСЂ addtinfo,РєРѕС‚РѕСЂС‹Рµ РїРѕРґС…РѕРґСЏС‚ РїРѕРґ РЅР°С€Рё С‚СЂРµР±РѕРІР°РЅРёСЏ
+	//getaddrinfo - Р±РµСЂРµС‚ С€Р°Р±Р»РѕРЅ Рё РїРѕСЂС‚, С„РѕСЂРјРёСЂСѓРµС‚ РіРѕС‚РѕРІСѓСЋ СЃС‚СЂСѓРєС‚СѓСЂСѓ РґР°РЅРЅС‹С… result? СЌС‚Сѓ СЃС‚СЂСѓРєС‚СѓСЂСѓ РјРѕР¶РЅРѕ РїСЂРµРґР°С‚СЊ
+	//РІ С„СѓРЅС†РёРё socket(), bind()
+	//Р•СЃР»Рё С„СѓРЅРєС†РёСЏ РІС‹РїРѕР»РЅРёР»Р°СЃСЊ СѓСЃРїРµС€РЅРѕ, С‚Рѕ РѕРЅР° РІРѕР·РІСЂР°С‰Р°РµС‚ 0
+	//getaddrinfo СЂР°Р±РѕС‚Р°РµС‚ РєР°Рє Р°Р»Р»РѕРєР°С‚РѕСЂ
 	dwError = WSAGetLastError();
 	if (iResult != 0)
 	{
 		cout << FormatLastError(dwError, szError) << endl;
 		cout << "getaddrinfo() failed: " << iResult << endl;
-		WSACleanup();//корректоно выгружаем библиотеку Winsock и освобождаем ресурсы
+		WSACleanup();//РєРѕСЂСЂРµРєС‚РѕРЅРѕ РІС‹РіСЂСѓР¶Р°РµРј Р±РёР±Р»РёРѕС‚РµРєСѓ Winsock Рё РѕСЃРІРѕР±РѕР¶РґР°РµРј СЂРµСЃСѓСЂСЃС‹
 		return;
 	}
-	//Создаем сокет для сервера, который он будет постоянно слушать "LISTENING"
-	//функция socket() обращается к операционной системе с просьбой создать новый сокет и дать его дескриптор
-	//в функцию мы передаем парметры, которые получили от getaddrinfo 
+	//РЎРѕР·РґР°РµРј СЃРѕРєРµС‚ РґР»СЏ СЃРµСЂРІРµСЂР°, РєРѕС‚РѕСЂС‹Р№ РѕРЅ Р±СѓРґРµС‚ РїРѕСЃС‚РѕСЏРЅРЅРѕ СЃР»СѓС€Р°С‚СЊ "LISTENING"
+	//С„СѓРЅРєС†РёСЏ socket() РѕР±СЂР°С‰Р°РµС‚СЃСЏ Рє РѕРїРµСЂР°С†РёРѕРЅРЅРѕР№ СЃРёСЃС‚РµРјРµ СЃ РїСЂРѕСЃСЊР±РѕР№ СЃРѕР·РґР°С‚СЊ РЅРѕРІС‹Р№ СЃРѕРєРµС‚ Рё РґР°С‚СЊ РµРіРѕ РґРµСЃРєСЂРёРїС‚РѕСЂ
+	//РІ С„СѓРЅРєС†РёСЋ РјС‹ РїРµСЂРµРґР°РµРј РїР°СЂРјРµС‚СЂС‹, РєРѕС‚РѕСЂС‹Рµ РїРѕР»СѓС‡РёР»Рё РѕС‚ getaddrinfo 
 	SOCKET listen_socket =
 		socket(result->ai_family, result->ai_socktype, result->ai_protocol);
 	dwError = WSAGetLastError();
@@ -90,25 +91,25 @@ void main()
 	{
 		cout << FormatLastError(dwError, szError) << endl;
 		cout << "Listen socket error: " << WSAGetLastError() << endl;
-		freeaddrinfo(result);//освобождаем память, которую выделила функция getaddrinfo для структуры result
-		WSACleanup();//выключаем сетевую подсистему
+		freeaddrinfo(result);//РѕСЃРІРѕР±РѕР¶РґР°РµРј РїР°РјСЏС‚СЊ, РєРѕС‚РѕСЂСѓСЋ РІС‹РґРµР»РёР»Р° С„СѓРЅРєС†РёСЏ getaddrinfo РґР»СЏ СЃС‚СЂСѓРєС‚СѓСЂС‹ result
+		WSACleanup();//РІС‹РєР»СЋС‡Р°РµРј СЃРµС‚РµРІСѓСЋ РїРѕРґСЃРёСЃС‚РµРјСѓ
 		return;
 	}
 	//4) Bind socket;
-	iResult = bind(listen_socket, result->ai_addr, result->ai_addrlen);//команда ОС, которая связывает созданный сокет с
-	//конкретным сетевым адресом (IP + порт)
+	iResult = bind(listen_socket, result->ai_addr, result->ai_addrlen);//РєРѕРјР°РЅРґР° РћРЎ, РєРѕС‚РѕСЂР°СЏ СЃРІСЏР·С‹РІР°РµС‚ СЃРѕР·РґР°РЅРЅС‹Р№ СЃРѕРєРµС‚ СЃ
+	//РєРѕРЅРєСЂРµС‚РЅС‹Рј СЃРµС‚РµРІС‹Рј Р°РґСЂРµСЃРѕРј (IP + РїРѕСЂС‚)
 	dwError = WSAGetLastError();
 	if (iResult == SOCKET_ERROR)
 	{
 		cout << FormatLastError(dwError, szError) << endl;
 		cout << "Bind falied with error: " << WSAGetLastError() << endl;
 		closesocket(listen_socket);
-		freeaddrinfo(result);//освобождение блока памяти, функция принимает указатель на начало блока памяти (result)
+		freeaddrinfo(result);//РѕСЃРІРѕР±РѕР¶РґРµРЅРёРµ Р±Р»РѕРєР° РїР°РјСЏС‚Рё, С„СѓРЅРєС†РёСЏ РїСЂРёРЅРёРјР°РµС‚ СѓРєР°Р·Р°С‚РµР»СЊ РЅР° РЅР°С‡Р°Р»Рѕ Р±Р»РѕРєР° РїР°РјСЏС‚Рё (result)
 		WSACleanup();
 		return;
 	}
 	freeaddrinfo(result);
-	//5) Запускаем прослушивание сокета:
+	//5) Р—Р°РїСѓСЃРєР°РµРј РїСЂРѕСЃР»СѓС€РёРІР°РЅРёРµ СЃРѕРєРµС‚Р°:
 	if (listen(listen_socket,MAX_CONNECTIONS) == SOCKET_ERROR)
 	{
 		dwError = WSAGetLastError();
@@ -119,16 +120,16 @@ void main()
 		WSACleanup();
 		return;
 	}
-	//6)Обработка соединений от клиентов:
+	//6)РћР±СЂР°Р±РѕС‚РєР° СЃРѕРµРґРёРЅРµРЅРёР№ РѕС‚ РєР»РёРµРЅС‚РѕРІ:
 	do
 	{
 		ShowActiveClients();
-		sockaddr_in client_address;//структура, хранящая адрес подключившегося клиента
-		int client_addrlen = sizeof(client_address);//сохраняем размер структуры
-		client_address.sin_family = AF_INET;//адрес типа IPv4
-		//accept - это блокирующая функция, это означает что выполнение программы остановится и будет ждать, пока не
-		//придет новый клиент
-		//функция берет слушающий сокет и создает новый сокет client_soket
+		sockaddr_in client_address;//СЃС‚СЂСѓРєС‚СѓСЂР°, С…СЂР°РЅСЏС‰Р°СЏ Р°РґСЂРµСЃ РїРѕРґРєР»СЋС‡РёРІС€РµРіРѕСЃСЏ РєР»РёРµРЅС‚Р°
+		int client_addrlen = sizeof(client_address);//СЃРѕС…СЂР°РЅСЏРµРј СЂР°Р·РјРµСЂ СЃС‚СЂСѓРєС‚СѓСЂС‹
+		client_address.sin_family = AF_INET;//Р°РґСЂРµСЃ С‚РёРїР° IPv4
+		//accept - СЌС‚Рѕ Р±Р»РѕРєРёСЂСѓСЋС‰Р°СЏ С„СѓРЅРєС†РёСЏ, СЌС‚Рѕ РѕР·РЅР°С‡Р°РµС‚ С‡С‚Рѕ РІС‹РїРѕР»РЅРµРЅРёРµ РїСЂРѕРіСЂР°РјРјС‹ РѕСЃС‚Р°РЅРѕРІРёС‚СЃСЏ Рё Р±СѓРґРµС‚ Р¶РґР°С‚СЊ, РїРѕРєР° РЅРµ
+		//РїСЂРёРґРµС‚ РЅРѕРІС‹Р№ РєР»РёРµРЅС‚
+		//С„СѓРЅРєС†РёСЏ Р±РµСЂРµС‚ СЃР»СѓС€Р°СЋС‰РёР№ СЃРѕРєРµС‚ Рё СЃРѕР·РґР°РµС‚ РЅРѕРІС‹Р№ СЃРѕРєРµС‚ client_soket
 		SOCKET client_socket = accept(listen_socket, (SOCKADDR*)&client_address, &client_addrlen);
 		dwError = WSAGetLastError();
 		if (client_socket == INVALID_SOCKET)
@@ -138,24 +139,24 @@ void main()
 		}
 		cout << inet_ntoa(client_address.sin_addr) << ":" << ntohs(client_address.sin_port) << endl;
 		//ClientHandle(client_socket);
-		if (g_ActiveClients < MAX_CONNECTIONS)//количество подключений меньше лимита
+		if (g_ActiveClients < MAX_CONNECTIONS)//РєРѕР»РёС‡РµСЃС‚РІРѕ РїРѕРґРєР»СЋС‡РµРЅРёР№ РјРµРЅСЊС€Рµ Р»РёРјРёС‚Р°
 		{
-			sockets[g_ActiveClients] = client_socket;//сохраняем дескриптор нового сокета в массив для дальнейшего управления
-			hThreads[g_ActiveClients] = CreateThread//создаем поток
+			sockets[g_ActiveClients] = client_socket;//СЃРѕС…СЂР°РЅСЏРµРј РґРµСЃРєСЂРёРїС‚РѕСЂ РЅРѕРІРѕРіРѕ СЃРѕРєРµС‚Р° РІ РјР°СЃСЃРёРІ РґР»СЏ РґР°Р»СЊРЅРµР№С€РµРіРѕ СѓРїСЂР°РІР»РµРЅРёСЏ
+			hThreads[g_ActiveClients] = CreateThread//СЃРѕР·РґР°РµРј РїРѕС‚РѕРє
 			(
 				NULL,//Security attributes
 				0,//Stack size
-				(LPTHREAD_START_ROUTINE)ClientHandle,//Указатель на функцию, которая будет выполняться в потоке
+				(LPTHREAD_START_ROUTINE)ClientHandle,//РЈРєР°Р·Р°С‚РµР»СЊ РЅР° С„СѓРЅРєС†РёСЋ, РєРѕС‚РѕСЂР°СЏ Р±СѓРґРµС‚ РІС‹РїРѕР»РЅСЏС‚СЊСЃСЏ РІ РїРѕС‚РѕРєРµ
 				(LPVOID)sockets[g_ActiveClients],
 				0,
 				&dwThredIDs[g_ActiveClients]
 			);
-			g_ActiveClients++;//увеличиваем счетчик клиентов
+			g_ActiveClients++;//СѓРІРµР»РёС‡РёРІР°РµРј СЃС‡РµС‚С‡РёРє РєР»РёРµРЅС‚РѕРІ
 		}
 		else
 		{
 			CHAR recv_buffer[BUFFER_LENGTH] = {};
-			iResult = recv(client_socket, recv_buffer, BUFFER_LENGTH, NULL);//читаем данные, то что успел отправить клиент
+			iResult = recv(client_socket, recv_buffer, BUFFER_LENGTH, NULL);//С‡РёС‚Р°РµРј РґР°РЅРЅС‹Рµ, С‚Рѕ С‡С‚Рѕ СѓСЃРїРµР» РѕС‚РїСЂР°РІРёС‚СЊ РєР»РёРµРЅС‚
 			/*if (iResult != 0)
 			{
 				FormatLastError(WSAGetLastError(), szError);
@@ -163,17 +164,17 @@ void main()
 			}
 			else*/ cout << recv_buffer << endl;
 			//CHAR szDeclainMessage[];
-			iResult = send(client_socket, DECLINE_MESSAGE, strlen(DECLINE_MESSAGE),NULL);//отрпавляем сообщение об отказе
-			shutdown(client_socket, SD_BOTH);//закрываем соединение
+			iResult = send(client_socket, DECLINE_MESSAGE, strlen(DECLINE_MESSAGE),NULL);//РѕС‚СЂРїР°РІР»СЏРµРј СЃРѕРѕР±С‰РµРЅРёРµ РѕР± РѕС‚РєР°Р·Рµ
+			shutdown(client_socket, SD_BOTH);//Р·Р°РєСЂС‹РІР°РµРј СЃРѕРµРґРёРЅРµРЅРёРµ
 			closesocket(client_socket);
 		}
-		//6.1) Получаем информацию о сокете клиента:
+		//6.1) РџРѕР»СѓС‡Р°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ СЃРѕРєРµС‚Рµ РєР»РёРµРЅС‚Р°:
 		//sockaddr_in* client_address_in = &client_address;
 		//CHAR* clientIP = inet_ntoa(client_address.sa_data+2);
 	} while (true);
 	WaitForMultipleObjects(MAX_CONNECTIONS, hThreads, TRUE, INFINITE);
 
-	//7)Получение и отправка данных:
+	//7)РџРѕР»СѓС‡РµРЅРёРµ Рё РѕС‚РїСЂР°РІРєР° РґР°РЅРЅС‹С…:
 	/*INT iSendResult = 0;
 	do
 	{
@@ -240,42 +241,46 @@ VOID Shift(INT start)
 
 VOID ClientHandle(SOCKET client_socket)
 {
-	sockaddr_in client_address;//sockaddr_in - структура для хранения информации об адресе клиента по протоколу IPv4
-	client_address.sin_family = AF_INET;//sin_family указывает,что это за адрес,для IPv4 это AF_INET
-	INT namelen = sizeof(client_address);//измерили размер client_address структуры
-	getpeername(client_socket, (sockaddr*)&client_address, &namelen);//функция позволяет узнать серверу кто к нему подключился, она извлекает инфу о клиенте и помещает в структуру client_address
-	CHAR sz_client_address[32] = {};//создаем буффер
-	//inet_ntoa - эта функция принимает IP адрес из структруры и преобразует его в строку
-	//client_address.sin_port - содержит номер порта,но в сетевом порядке байт
-	//ntohs(Network-To-Host Short) -  конвертирует число из сетевого порядка в порядок, понятный процессору(host byte order)
+	sockaddr_in client_address;//sockaddr_in - СЃС‚СЂСѓРєС‚СѓСЂР° РґР»СЏ С…СЂР°РЅРµРЅРёСЏ РёРЅС„РѕСЂРјР°С†РёРё РѕР± Р°РґСЂРµСЃРµ РєР»РёРµРЅС‚Р° РїРѕ РїСЂРѕС‚РѕРєРѕР»Сѓ IPv4
+	client_address.sin_family = AF_INET;//sin_family СѓРєР°Р·С‹РІР°РµС‚,С‡С‚Рѕ СЌС‚Рѕ Р·Р° Р°РґСЂРµСЃ,РґР»СЏ IPv4 СЌС‚Рѕ AF_INET
+	INT namelen = sizeof(client_address);//РёР·РјРµСЂРёР»Рё СЂР°Р·РјРµСЂ client_address СЃС‚СЂСѓРєС‚СѓСЂС‹
+	getpeername(client_socket, (sockaddr*)&client_address, &namelen);//С„СѓРЅРєС†РёСЏ РїРѕР·РІРѕР»СЏРµС‚ СѓР·РЅР°С‚СЊ СЃРµСЂРІРµСЂСѓ РєС‚Рѕ Рє РЅРµРјСѓ РїРѕРґРєР»СЋС‡РёР»СЃСЏ, РѕРЅР° РёР·РІР»РµРєР°РµС‚ РёРЅС„Сѓ Рѕ РєР»РёРµРЅС‚Рµ Рё РїРѕРјРµС‰Р°РµС‚ РІ СЃС‚СЂСѓРєС‚СѓСЂСѓ client_address
+	CHAR sz_client_address[32] = {};//СЃРѕР·РґР°РµРј Р±СѓС„С„РµСЂ
+	//inet_ntoa - СЌС‚Р° С„СѓРЅРєС†РёСЏ РїСЂРёРЅРёРјР°РµС‚ IP Р°РґСЂРµСЃ РёР· СЃС‚СЂСѓРєС‚СЂСѓСЂС‹ Рё РїСЂРµРѕР±СЂР°Р·СѓРµС‚ РµРіРѕ РІ СЃС‚СЂРѕРєСѓ
+	//client_address.sin_port - СЃРѕРґРµСЂР¶РёС‚ РЅРѕРјРµСЂ РїРѕСЂС‚Р°,РЅРѕ РІ СЃРµС‚РµРІРѕРј РїРѕСЂСЏРґРєРµ Р±Р°Р№С‚
+	//ntohs(Network-To-Host Short) -  РєРѕРЅРІРµСЂС‚РёСЂСѓРµС‚ С‡РёСЃР»Рѕ РёР· СЃРµС‚РµРІРѕРіРѕ РїРѕСЂСЏРґРєР° РІ РїРѕСЂСЏРґРѕРє, РїРѕРЅСЏС‚РЅС‹Р№ РїСЂРѕС†РµСЃСЃРѕСЂСѓ(host byte order)
+	CHAR sz_client_connected[32] = {};
 	sprintf(sz_client_address, "%s:%d - ", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
-
+	sprintf(sz_client_connected, "%s CONNECTED", sz_client_address);
+	//Broadcast(sz_client_connected, GetCurrentThreadId());
 	cout << "Client connected:\t "<<sz_client_address<<"\tSOCKET:\t"<<client_socket << endl;
-	INT iResult = 0;//сколько байт получено по результатам функции recv
-	DWORD dwError = 0;//для хранения кода ошибки
-	CHAR szError[256] = {};//буфер для текстового описания ошибки
-	INT iSendResult = 0;//сколько байт отправлено по результатам функции send
-	//цикл будет выполняться до тех пор пока результат получения данных больше нуля
+	INT iResult = 0;//СЃРєРѕР»СЊРєРѕ Р±Р°Р№С‚ РїРѕР»СѓС‡РµРЅРѕ РїРѕ СЂРµР·СѓР»СЊС‚Р°С‚Р°Рј С„СѓРЅРєС†РёРё recv
+	DWORD dwError = 0;//РґР»СЏ С…СЂР°РЅРµРЅРёСЏ РєРѕРґР° РѕС€РёР±РєРё
+	CHAR szError[256] = {};//Р±СѓС„РµСЂ РґР»СЏ С‚РµРєСЃС‚РѕРІРѕРіРѕ РѕРїРёСЃР°РЅРёСЏ РѕС€РёР±РєРё
+	INT iSendResult = 0;//СЃРєРѕР»СЊРєРѕ Р±Р°Р№С‚ РѕС‚РїСЂР°РІР»РµРЅРѕ РїРѕ СЂРµР·СѓР»СЊС‚Р°С‚Р°Рј С„СѓРЅРєС†РёРё send
+	//С†РёРєР» Р±СѓРґРµС‚ РІС‹РїРѕР»РЅСЏС‚СЊСЃСЏ РґРѕ С‚РµС… РїРѕСЂ РїРѕРєР° СЂРµР·СѓР»СЊС‚Р°С‚ РїРѕР»СѓС‡РµРЅРёСЏ РґР°РЅРЅС‹С… Р±РѕР»СЊС€Рµ РЅСѓР»СЏ
 	do                                
 	{
-		CHAR sendBuffer[BUFFER_LENGTH] = {};//буфер для отправки данных
-		CHAR recvbuffer[BUFFER_LENGTH] = {};//буфер для входящих данных
-		//recv - это функция пытается прочитать данные из сокета, она кладет полученные данные в recvbuffer
-		//эта функция может прочитать максимум BUFFER_LENGTH байт
-		//возвращает >0, то количество успешно прочитанных байт
-		//0 - соединение корректон закрыто клиентом
-		//SOCKET_ERROR(-1) произошла ошибка
+		CHAR sendBuffer[BUFFER_LENGTH] = {};//Р±СѓС„РµСЂ РґР»СЏ РѕС‚РїСЂР°РІРєРё РґР°РЅРЅС‹С…
+		CHAR recvbuffer[BUFFER_LENGTH] = {};//Р±СѓС„РµСЂ РґР»СЏ РІС…РѕРґСЏС‰РёС… РґР°РЅРЅС‹С…
+		//recv - СЌС‚Рѕ С„СѓРЅРєС†РёСЏ РїС‹С‚Р°РµС‚СЃСЏ РїСЂРѕС‡РёС‚Р°С‚СЊ РґР°РЅРЅС‹Рµ РёР· СЃРѕРєРµС‚Р°, РѕРЅР° РєР»Р°РґРµС‚ РїРѕР»СѓС‡РµРЅРЅС‹Рµ РґР°РЅРЅС‹Рµ РІ recvbuffer
+		//СЌС‚Р° С„СѓРЅРєС†РёСЏ РјРѕР¶РµС‚ РїСЂРѕС‡РёС‚Р°С‚СЊ РјР°РєСЃРёРјСѓРј BUFFER_LENGTH Р±Р°Р№С‚
+		//РІРѕР·РІСЂР°С‰Р°РµС‚ >0, С‚Рѕ РєРѕР»РёС‡РµСЃС‚РІРѕ СѓСЃРїРµС€РЅРѕ РїСЂРѕС‡РёС‚Р°РЅРЅС‹С… Р±Р°Р№С‚
+		//0 - СЃРѕРµРґРёРЅРµРЅРёРµ РєРѕСЂСЂРµРєС‚РѕРЅ Р·Р°РєСЂС‹С‚Рѕ РєР»РёРµРЅС‚РѕРј
+		//SOCKET_ERROR(-1) РїСЂРѕРёР·РѕС€Р»Р° РѕС€РёР±РєР°
 		iResult = recv(client_socket, recvbuffer, BUFFER_LENGTH, 0);
-		dwError = WSAGetLastError();//функция запрашивает у ОС код последней ошибки,которая произошла в контексте сетевых операций для данного потока
-		if (iResult > 0)//данные успешно получены
+		dwError = WSAGetLastError();//С„СѓРЅРєС†РёСЏ Р·Р°РїСЂР°С€РёРІР°РµС‚ Сѓ РћРЎ РєРѕРґ РїРѕСЃР»РµРґРЅРµР№ РѕС€РёР±РєРё,РєРѕС‚РѕСЂР°СЏ РїСЂРѕРёР·РѕС€Р»Р° РІ РєРѕРЅС‚РµРєСЃС‚Рµ СЃРµС‚РµРІС‹С… РѕРїРµСЂР°С†РёР№ РґР»СЏ РґР°РЅРЅРѕРіРѕ РїРѕС‚РѕРєР°
+		if (iResult > 0)//РґР°РЅРЅС‹Рµ СѓСЃРїРµС€РЅРѕ РїРѕР»СѓС‡РµРЅС‹
 		{
-			//выводим на консоль адрес клиента и полученные от него данные
-			//strlen(recvbuffer) отправляем только полезные данные
+			//РІС‹РІРѕРґРёРј РЅР° РєРѕРЅСЃРѕР»СЊ Р°РґСЂРµСЃ РєР»РёРµРЅС‚Р° Рё РїРѕР»СѓС‡РµРЅРЅС‹Рµ РѕС‚ РЅРµРіРѕ РґР°РЅРЅС‹Рµ
+			//strlen(recvbuffer) РѕС‚РїСЂР°РІР»СЏРµРј С‚РѕР»СЊРєРѕ РїРѕР»РµР·РЅС‹Рµ РґР°РЅРЅС‹Рµ
 			cout << sz_client_address << recvbuffer << "(" << strlen(recvbuffer) << " Bytes)" << endl;
-			//эхо-логика сервер отправляет те же самые данные, которые получил
-			iSendResult = send(client_socket, recvbuffer, strlen(recvbuffer), 0);
+			sprintf(sendBuffer, "%s%s", sz_client_address, recvbuffer);
+			Broadcast(sendBuffer, GetCurrentThreadId());
+			//СЌС…Рѕ-Р»РѕРіРёРєР° СЃРµСЂРІРµСЂ РѕС‚РїСЂР°РІР»СЏРµС‚ С‚Рµ Р¶Рµ СЃР°РјС‹Рµ РґР°РЅРЅС‹Рµ, РєРѕС‚РѕСЂС‹Рµ РїРѕР»СѓС‡РёР»
+			//iSendResult = send(client_socket, recvbuffer, strlen(recvbuffer), 0);
 			dwError = WSAGetLastError();
-			if (iSendResult == SOCKET_ERROR)//проверяем успешно ли прошла отправка,если нет, то  выводим ошибку и закрываем сокет
+			if (iSendResult == SOCKET_ERROR)//РїСЂРѕРІРµСЂСЏРµРј СѓСЃРїРµС€РЅРѕ Р»Рё РїСЂРѕС€Р»Р° РѕС‚РїСЂР°РІРєР°,РµСЃР»Рё РЅРµС‚, С‚Рѕ  РІС‹РІРѕРґРёРј РѕС€РёР±РєСѓ Рё Р·Р°РєСЂС‹РІР°РµРј СЃРѕРєРµС‚
 			{
 				cout << FormatLastError(dwError, szError) << endl;
 				cout << "Send failed with error: " << WSAGetLastError() << endl;
@@ -283,8 +288,8 @@ VOID ClientHandle(SOCKET client_socket)
 			}
 			else cout << "Bytes sent: " << iSendResult << endl;
 		}
-		else if (iResult == 0)cout << "Connection closing..." << endl;//клиент отключился 
-		else//произошла ошибка при получении данных, выводим описание ошибки и закрываем сокет
+		else if (iResult == 0)cout << "Connection closing..." << endl;//РєР»РёРµРЅС‚ РѕС‚РєР»СЋС‡РёР»СЃСЏ 
+		else//РїСЂРѕРёР·РѕС€Р»Р° РѕС€РёР±РєР° РїСЂРё РїРѕР»СѓС‡РµРЅРёРё РґР°РЅРЅС‹С…, РІС‹РІРѕРґРёРј РѕРїРёСЃР°РЅРёРµ РѕС€РёР±РєРё Рё Р·Р°РєСЂС‹РІР°РµРј СЃРѕРєРµС‚
 		{
 			cout << FormatLastError(dwError, szError) << endl;
 			cout << "Recive failed with error: " << WSAGetLastError() << endl;
@@ -294,9 +299,9 @@ VOID ClientHandle(SOCKET client_socket)
 	DWORD dwID = GetCurrentThreadId();
 	Shift(GetSlotIndex(dwID));
 	cout << sz_client_address << "left" << endl;
-	//по завершенеию цикла (отключение клиента или же ошибка) нужно закрыть соединение
-	iResult = shutdown(client_socket, SD_BOTH);//shutdown - функция, закрывающая соединение, флаг
-	//SD_BOTH означает запретить отправку и получение
+	//РїРѕ Р·Р°РІРµСЂС€РµРЅРµРёСЋ С†РёРєР»Р° (РѕС‚РєР»СЋС‡РµРЅРёРµ РєР»РёРµРЅС‚Р° РёР»Рё Р¶Рµ РѕС€РёР±РєР°) РЅСѓР¶РЅРѕ Р·Р°РєСЂС‹С‚СЊ СЃРѕРµРґРёРЅРµРЅРёРµ
+	iResult = shutdown(client_socket, SD_BOTH);//shutdown - С„СѓРЅРєС†РёСЏ, Р·Р°РєСЂС‹РІР°СЋС‰Р°СЏ СЃРѕРµРґРёРЅРµРЅРёРµ, С„Р»Р°Рі
+	//SD_BOTH РѕР·РЅР°С‡Р°РµС‚ Р·Р°РїСЂРµС‚РёС‚СЊ РѕС‚РїСЂР°РІРєСѓ Рё РїРѕР»СѓС‡РµРЅРёРµ
 	dwError = WSAGetLastError();
 	if (iResult == SOCKET_ERROR)cout << "Client shutdown failed with " << FormatLastError(dwError, szError) << endl;
 	closesocket(client_socket);
@@ -332,7 +337,13 @@ VOID ShowActiveClients()
 	GetConsoleScreenBufferInfo(hConsole, &info);
 	COORD cursor = { 25,1 };
 	SetConsoleCursorPosition(hConsole, cursor);
-	cout << "Количество подключений: " << g_ActiveClients;
+	cout << "РљРѕР»РёС‡РµСЃС‚РІРѕ РїРѕРґРєР»СЋС‡РµРЅРёР№: " << g_ActiveClients;
 	SetConsoleCursorPosition(hConsole, info.dwCursorPosition);
 }
-
+VOID Broadcast(CHAR sz_message[],DWORD dwID)
+{
+	for (INT i = 0; i < g_ActiveClients; ++i)
+	{
+		if (dwThredIDs[i] != dwID)send(sockets[i], sz_message, strlen(sz_message), 0);
+	}
+}
