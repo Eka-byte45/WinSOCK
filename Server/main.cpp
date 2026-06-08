@@ -19,24 +19,27 @@ using namespace std;
 #define BUFFER_LENGTH 1500
 #define MAX_CONNECTIONS 3
 
+struct ClientInfo
+{
+	SOCKET socket;
+	CHAR nickname[BUFFER_LENGTH];
+};
+
 SOCKET sockets[MAX_CONNECTIONS] = {};//массив для хранения дескрипторов сокетов клиента
 DWORD dwThredIDs[MAX_CONNECTIONS] = {};//массив для хранения системных ай ди для каждого клиента
 HANDLE hThreads[MAX_CONNECTIONS] = {};//массив дескрипторов потоков для управления их жизненным циклом
+ClientInfo clients[MAX_CONNECTIONS] = {};
 INT g_ActiveClients = 0;//Счетчик клиентов
-
-//struct ClentParametrs
-//{
-//	SOCKET client_socket;
-//	sockaddr_in client_address;
-//};
+CRITICAL_SECTION g_csClients;
 
 VOID ClientHandle(SOCKET client_socket);
 VOID ShowActiveClients();
 //VOID Realease(SOCKET client_socket);
 
-void main()
+int main()
 {
 	setlocale(LC_ALL, "");
+	InitializeCriticalSection(&g_csClients);
 	cout << "SERVER" << endl;
 	DWORD dwError = 0;//для хранения кода ошибки
 	CHAR szError[256] = {};//буфер для текстового описания ошибки
@@ -53,7 +56,7 @@ void main()
 	{
 		cout << FormatLastError(dwError, szError) << endl;
 		cout << "WSAStartup failed: " << iResult << endl;
-		return;
+		return 1;
 	}
 	//2)параметры подключения:
 	addrinfo hints;//структура, опреедляющая какой именно сокет мы хотим создать
@@ -78,7 +81,7 @@ void main()
 		cout << FormatLastError(dwError, szError) << endl;
 		cout << "getaddrinfo() failed: " << iResult << endl;
 		WSACleanup();//корректоно выгружаем библиотеку Winsock и освобождаем ресурсы
-		return;
+		return 1;
 	}
 	//Создаем сокет для сервера, который он будет постоянно слушать "LISTENING"
 	//функция socket() обращается к операционной системе с просьбой создать новый сокет и дать его дескриптор
@@ -92,7 +95,7 @@ void main()
 		cout << "Listen socket error: " << WSAGetLastError() << endl;
 		freeaddrinfo(result);//освобождаем память, которую выделила функция getaddrinfo для структуры result
 		WSACleanup();//выключаем сетевую подсистему
-		return;
+		return 1;
 	}
 	//4) Bind socket;
 	iResult = bind(listen_socket, result->ai_addr, result->ai_addrlen);//команда ОС, которая связывает созданный сокет с
@@ -105,7 +108,7 @@ void main()
 		closesocket(listen_socket);
 		freeaddrinfo(result);//освобождение блока памяти, функция принимает указатель на начало блока памяти (result)
 		WSACleanup();
-		return;
+		return 1;
 	}
 	freeaddrinfo(result);
 	//5) Запускаем прослушивание сокета:
@@ -117,7 +120,7 @@ void main()
 		closesocket(listen_socket);
 		freeaddrinfo(result);
 		WSACleanup();
-		return;
+		return 1;
 	}
 	//6)Обработка соединений от клиентов:
 	do
@@ -138,6 +141,7 @@ void main()
 		}
 		cout << inet_ntoa(client_address.sin_addr) << ":" << ntohs(client_address.sin_port) << endl;
 		//ClientHandle(client_socket);
+		EnterCriticalSection(&g_csClients);
 		if (g_ActiveClients < MAX_CONNECTIONS)//количество подключений меньше лимита
 		{
 			sockets[g_ActiveClients] = client_socket;//сохраняем дескриптор нового сокета в массив для дальнейшего управления
@@ -170,52 +174,27 @@ void main()
 		//6.1) Получаем информацию о сокете клиента:
 		//sockaddr_in* client_address_in = &client_address;
 		//CHAR* clientIP = inet_ntoa(client_address.sa_data+2);
+		LeaveCriticalSection(&g_csClients);
 	} while (true);
 	WaitForMultipleObjects(MAX_CONNECTIONS, hThreads, TRUE, INFINITE);
-
-	//7)Получение и отправка данных:
-	/*INT iSendResult = 0;
-	do
-	{
-		CHAR sendBuffer[BUFFER_LENGTH] = {};
-		CHAR recvbuffer[BUFFER_LENGTH] = {};
-		iResult = recv(client_socket, recvbuffer, BUFFER_LENGTH, 0);
-		dwError = WSAGetLastError();
-		if (iResult > 0)
-		{
-			cout << recvbuffer << "(" << strlen(recvbuffer) << " Bytes)" << endl;
-			iSendResult = send(client_socket, recvbuffer,strlen(recvbuffer), 0);
-			dwError = WSAGetLastError();
-			if (iSendResult == SOCKET_ERROR)
-			{
-				cout << FormatLastError(dwError, szError) << endl;
-				cout << "Send failed with error: " << WSAGetLastError() << endl;
-				closesocket(client_socket);
-			}
-			else cout << "Bytes sent: " << iSendResult << endl;
-		}
-		else if (iResult == 0)cout << "Connection closing..." << endl;
-		else
-		{
-			cout << FormatLastError(dwError, szError) << endl;
-			cout << "Recive failed with error: " << WSAGetLastError() << endl;
-			closesocket(client_socket);
-		}
-	} while (iResult > 0);*/
-
-	/*iResult = shutdown(client_socket, SD_BOTH);
-	dwError = WSAGetLastError();
-	if (iResult == SOCKET_ERROR)cout << "Client shutdown failed with " << FormatLastError(dwError, szError) << endl;*/
-
-	/*iResult = shutdown(client_socket, SD_BOTH);
-	dwError = WSAGetLastError();
-	if (iResult == SOCKET_ERROR)cout << "Server shutdown failed with " << FormatLastError(dwError, szError) << endl;*/
-
-	
+	for (int i = 0; i < MAX_CONNECTIONS; ++i) CloseHandle(hThreads[i]);
+	DeleteCriticalSection(&g_csClients);
 	closesocket(listen_socket);
 	WSACleanup();
+	return 0;
 }
-
+VOID Broadcast(const char* message, SOCKET sender_socket)
+{
+	EnterCriticalSection(&g_csClients);
+	for (int i = 0; i < MAX_CONNECTIONS; ++i)
+	{
+		if (clients[i].socket != NULL && clients[i].socket != sender_socket)
+		{
+			send(clients[i].socket, message, strlen(message), 0);
+		}
+	}
+	LeaveCriticalSection(&g_csClients);
+}
 INT GetSlotIndex(DWORD dwID)
 {
 	for (int i = 0; i < MAX_CONNECTIONS; ++i)
@@ -255,16 +234,44 @@ VOID ClientHandle(SOCKET client_socket)
 	DWORD dwError = 0;//для хранения кода ошибки
 	CHAR szError[256] = {};//буфер для текстового описания ошибки
 	INT iSendResult = 0;//сколько байт отправлено по результатам функции send
+	CHAR recvbuffer[BUFFER_LENGTH] = {};
+	iResult = recv(client_socket, recvbuffer, BUFFER_LENGTH, 0);
+	EnterCriticalSection(&g_csClients);
+	int slot_index = -1;
+	for (int j = 0; j < MAX_CONNECTIONS; ++j)
+	{
+		if (clients[j].socket == NULL || clients[j].socket == INVALID_SOCKET)
+		{
+			slot_index = j;
+			break;
+		}
+	}
+	if (slot_index != -1)
+	{
+		ZeroMemory(&clients[slot_index], sizeof(ClientInfo)); // Очищаем структуру на случай, если там был старый мусор
+		clients[slot_index].socket = client_socket;
+
+		// Если клиент прислал никнейм (iResult > 0), сохраняем его.
+		// Если нет (iResult <= 0), оставляем поле nickname пустым.
+		if (iResult > 0) 
+		{
+			strncpy_s(clients[slot_index].nickname, recvbuffer, _TRUNCATE);
+		}
+
+	}
+	LeaveCriticalSection(&g_csClients); // Выходим из критической секции
+
 	//цикл будет выполняться до тех пор пока результат получения данных больше нуля
 	do                                
 	{
-		CHAR sendBuffer[BUFFER_LENGTH] = {};//буфер для отправки данных
-		CHAR recvbuffer[BUFFER_LENGTH] = {};//буфер для входящих данных
+		//CHAR sendBuffer[BUFFER_LENGTH] = {};//буфер для отправки данных
+		//CHAR recvbuffer[BUFFER_LENGTH] = {};//буфер для входящих данных
 		//recv - это функция пытается прочитать данные из сокета, она кладет полученные данные в recvbuffer
 		//эта функция может прочитать максимум BUFFER_LENGTH байт
 		//возвращает >0, то количество успешно прочитанных байт
 		//0 - соединение корректон закрыто клиентом
 		//SOCKET_ERROR(-1) произошла ошибка
+		ZeroMemory(recvbuffer, BUFFER_LENGTH); // Очищаем буфер перед каждым новым приемом данных
 		iResult = recv(client_socket, recvbuffer, BUFFER_LENGTH, 0);
 		dwError = WSAGetLastError();//функция запрашивает у ОС код последней ошибки,которая произошла в контексте сетевых операций для данного потока
 		if (iResult > 0)//данные успешно получены
@@ -273,7 +280,16 @@ VOID ClientHandle(SOCKET client_socket)
 			//strlen(recvbuffer) отправляем только полезные данные
 			cout << sz_client_address << recvbuffer << "(" << strlen(recvbuffer) << " Bytes)" << endl;
 			//эхо-логика сервер отправляет те же самые данные, которые получил
-			iSendResult = send(client_socket, recvbuffer, strlen(recvbuffer), 0);
+			//iSendResult = send(client_socket, recvbuffer, strlen(recvbuffer), 0);
+			Broadcast(recvbuffer, client_socket);
+
+			const char* who = "";
+			EnterCriticalSection(&g_csClients);
+			int idx = GetSlotIndex(dwThredIDs[g_ActiveClients - 1]); // Находим индекс текущего клиента
+			who = (idx != -1 && clients[idx].nickname[0] != '\0') ? clients[idx].nickname : sz_client_address;
+			//LeaveCriticalSection(&g_csClients);
+
+			cout << who << recvbuffer << "(" << strlen(recvbuffer) << " Bytes)" << endl;
 			dwError = WSAGetLastError();
 			if (iSendResult == SOCKET_ERROR)//проверяем успешно ли прошла отправка,если нет, то  выводим ошибку и закрываем сокет
 			{
@@ -304,27 +320,7 @@ VOID ClientHandle(SOCKET client_socket)
 	ShowActiveClients();
 	ExitThread(0);
 }
-//VOID Realease(SOCKET client_socket)
-//{
-//	for (int i = 0; i < MAX_CONNECTIONS; ++i)
-//	{
-//		if (client_socket == sockets[i])
-//		{
-//			sockets[i] = NULL;
-//			//dwThredIDs[i] = NULL;
-//			//hThreads[i] = NULL;
-//			for (int j = i; sockets[j] || j < MAX_CONNECTIONS - 1; ++j)
-//			{
-//				sockets[j] = sockets[j + 1];
-//				dwThredIDs[j] = dwThredIDs[j + 1];
-//				hThreads[j] = hThreads[j + 1];
-//			}
-//		}
-//	}
-//	g_ActiveClients--;
-//	ShowActiveClients();
-//}
-//
+
 VOID ShowActiveClients()
 {
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
